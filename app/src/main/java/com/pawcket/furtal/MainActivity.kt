@@ -146,7 +146,11 @@ fun Context.go(i: Intent) = try { startActivity(i) } catch (e: Exception) { toas
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable fun Sheet(title: String, close: () -> Unit, body: @Composable ColumnScope.() -> Unit) =
-    ModalBottomSheet(close, containerColor = Cream) {
+    ModalBottomSheet(
+        onDismissRequest = close,
+        containerColor = Cream,
+        windowInsets = WindowInsets(0.dp)
+    ) {
         Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 24.dp).verticalScroll(rememberScrollState()).navigationBarsPadding().imePadding()) {
             Label("PAWCKET FURTAL"); Text(title, fontSize = 22.sp); body()
         }
