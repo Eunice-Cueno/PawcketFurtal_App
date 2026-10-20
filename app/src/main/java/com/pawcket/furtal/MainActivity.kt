@@ -177,7 +177,7 @@ fun Context.go(i: Intent) = try { startActivity(i) } catch (e: Exception) { toas
     var email by remember { mutableStateOf("") }; var pw by remember { mutableStateOf("") }; var name by remember { mutableStateOf("") }
     var show by remember { mutableStateOf(false) }; var signup by remember { mutableStateOf(false) }
     fun enter(p: Profile) { vm.user = p; vm.guest = false; done() }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(24.dp)) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(24.dp).imePadding()) {
         Row(verticalAlignment = Alignment.CenterVertically) { Image(painterResource(R.drawable.logo), "Logo", Modifier.size(40.dp)); Spacer(Modifier.width(8.dp)); Text("PawCKet Furtal", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Dark) }
         Image(painterResource(R.drawable.welcome), null, Modifier.fillMaxWidth().padding(vertical = 12.dp), contentScale = ContentScale.FillWidth)
         Text(if (signup) "Join the pack" else "A home for every pet", fontSize = 26.sp, color = Dark)
@@ -465,7 +465,7 @@ fun Context.go(i: Intent) = try { startActivity(i) } catch (e: Exception) { toas
     var edit by remember { mutableStateOf(false) }
     var n by remember(u) { mutableStateOf(u.name) }; var ph by remember(u) { mutableStateOf(u.phone) }; var fb by remember(u) { mutableStateOf(u.facebook) }
     var em by remember(u) { mutableStateOf(u.email) }; var ad by remember(u) { mutableStateOf(u.address) }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).imePadding()) {
         Column(Modifier.fillMaxWidth().background(Green).statusBarsPadding().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Row(Modifier.fillMaxWidth()) { IconButton(back) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White) } }
             Label("MY ACCOUNT"); Text(u.name, color = Color.White, fontSize = 22.sp)
