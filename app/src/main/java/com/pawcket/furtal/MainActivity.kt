@@ -148,9 +148,18 @@ fun Context.go(i: Intent) = try { startActivity(i) } catch (e: Exception) { toas
 @Composable fun Sheet(title: String, close: () -> Unit, body: @Composable ColumnScope.() -> Unit) =
     ModalBottomSheet(
         onDismissRequest = close,
-        containerColor = Cream
+        containerColor = Cream,
+        dragHandle = null
     ) {
-        Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 24.dp).verticalScroll(rememberScrollState()).imePadding()) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .imePadding()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 24.dp)
+                .verticalScroll(rememberScrollState())
+        ) {
             Label("PAWCKET FURTAL"); Text(title, fontSize = 22.sp); body()
         }
     }
