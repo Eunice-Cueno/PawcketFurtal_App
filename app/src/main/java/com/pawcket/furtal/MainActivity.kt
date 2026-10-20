@@ -8,6 +8,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.core.view.WindowCompat
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -36,6 +37,9 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.platform.LocalWindowInsets
+import androidx.compose.ui.platform.WindowInsets
+import androidx.compose.ui.platform.WindowInsetsController
 
 val Green = Color(0xFF3F7D58); val Dark = Color(0xFF1F4D3A); val Cream = Color(0xFFFBF9F1)
 val Orange = Color(0xFFF4A261); val Teal = Color(0xFF2A7F86); val Pink = Color(0xFFFFEEF2)
@@ -44,6 +48,7 @@ val Mint = Color(0xFFE6F4EA); val Lav = Color(0xFFF3E8FF); val Peach = Color(0xF
 class MainActivity : ComponentActivity() {
     override fun onCreate(s: Bundle?) {
         super.onCreate(s)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         setContent {
             MaterialTheme(colorScheme = lightColorScheme(primary = Green, background = Cream, surface = Cream)) {
                 Surface(Modifier.fillMaxSize(), color = Cream) { App(viewModel()) }
@@ -65,7 +70,7 @@ fun Context.go(i: Intent) = try { startActivity(i) } catch (e: Exception) { toas
         else mapOf("home" to "Tahanan", "lost" to "Nawala", "adopt" to "Ampunin", "clinics" to "Klinika", "give" to "Magbigay")[k]!!
     if (screen == "login") { Login(vm) { screen = "home" }; return }
     if (screen == "account") { BackHandler { screen = "home" }; Account(vm, { screen = "home" }) { screen = "login" }; return }
-    Box(Modifier.fillMaxSize()) {
+    Box(Modifier.fillMaxSize().systemBarsPadding()) {
         Scaffold(containerColor = Cream,
             topBar = { TopBar({ screen = "account" }, { langDlg = true }, { menu = true }) },
             bottomBar = {
@@ -122,7 +127,7 @@ fun Context.go(i: Intent) = try { startActivity(i) } catch (e: Exception) { toas
 @Composable fun Label(s: String) = Text(s, fontSize = 10.sp, letterSpacing = 1.5.sp, color = Color(0xFF6B7A72), fontWeight = FontWeight.Medium)
 
 @Composable fun TopBar(acc: () -> Unit, lang: () -> Unit, menu: () -> Unit) {
-    Row(Modifier.fillMaxWidth().background(Color.White).statusBarsPadding().padding(horizontal = 14.dp, vertical = 8.dp),
+    Row(Modifier.fillMaxWidth().background(Color.White).padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Image(painterResource(R.drawable.logo), "Logo", Modifier.size(34.dp)); Spacer(Modifier.width(8.dp))
         Text("PawCKet FurTal", fontWeight = FontWeight.SemiBold, color = Dark, modifier = Modifier.weight(1f))
@@ -177,7 +182,7 @@ fun Context.go(i: Intent) = try { startActivity(i) } catch (e: Exception) { toas
     var email by remember { mutableStateOf("") }; var pw by remember { mutableStateOf("") }; var name by remember { mutableStateOf("") }
     var show by remember { mutableStateOf(false) }; var signup by remember { mutableStateOf(false) }
     fun enter(p: Profile) { vm.user = p; vm.guest = false; done() }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(24.dp).imePadding()) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp).imePadding()) {
         Row(verticalAlignment = Alignment.CenterVertically) { Image(painterResource(R.drawable.logo), "Logo", Modifier.size(40.dp)); Spacer(Modifier.width(8.dp)); Text("PawCKet Furtal", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Dark) }
         Image(painterResource(R.drawable.welcome), null, Modifier.fillMaxWidth().padding(vertical = 12.dp), contentScale = ContentScale.FillWidth)
         Text(if (signup) "Join the pack" else "A home for every pet", fontSize = 26.sp, color = Dark)
@@ -466,7 +471,7 @@ fun Context.go(i: Intent) = try { startActivity(i) } catch (e: Exception) { toas
     var n by remember(u) { mutableStateOf(u.name) }; var ph by remember(u) { mutableStateOf(u.phone) }; var fb by remember(u) { mutableStateOf(u.facebook) }
     var em by remember(u) { mutableStateOf(u.email) }; var ad by remember(u) { mutableStateOf(u.address) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).imePadding()) {
-        Column(Modifier.fillMaxWidth().background(Green).statusBarsPadding().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(Modifier.fillMaxWidth().background(Green).padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Row(Modifier.fillMaxWidth()) { IconButton(back) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White) } }
             Label("MY ACCOUNT"); Text(u.name, color = Color.White, fontSize = 22.sp)
             Box(Modifier.padding(20.dp).size(90.dp).clip(CircleShape).background(Mint), Alignment.Center) { Icon(Icons.Filled.Person, null, Modifier.size(48.dp), tint = Green) }
