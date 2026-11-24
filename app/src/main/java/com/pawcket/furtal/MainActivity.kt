@@ -1,10 +1,12 @@
 package com.pawcket.furtal
 
+import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import androidx.activity.enableEdgeToEdge
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -23,6 +25,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -50,6 +54,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(s: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(s)
+        // Android 13+ needs the user's permission before notifications can appear
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
         setContent {
             MaterialTheme(colorScheme = lightColorScheme(primary = Green, background = Cream, surface = Cream)) {
                 Surface(Modifier.fillMaxSize(), color = Cream) { App(viewModel()) }
@@ -153,7 +160,9 @@ fun Context.addNotification(vm: Vm, title: String, message: String) {
             }
         }
     })
-    if (notifCenter) AlertDialog(onDismissRequest = { notifCenter = false }, confirmButton = { Text("Close", onClick = { notifCenter = false }) }, title = { Text("Notifications") }, text = {
+    if (notifCenter) AlertDialog(onDismissRequest = { notifCenter = false }, confirmButton = { TextButton({ notifCenter = false }) { Text("Close", color = Green) } },
+        dismissButton = { if (vm.notifications.isNotEmpty()) TextButton({ vm.notifications.clear() }) { Text("Clear all", color = Color.Gray) } },
+        title = { Text("Notifications") }, text = {
         if (vm.notifications.isEmpty()) Text("No notifications yet.", color = Color.Gray)
         else LazyColumn(Modifier.heightIn(max = 400.dp)) {
             items(vm.notifications) { notif ->
@@ -518,8 +527,23 @@ fun Context.addNotification(vm: Vm, title: String, message: String) {
 @Composable fun Messages(vm: Vm) {
     val c = androidx.compose.ui.platform.LocalContext.current
     var msg by remember { mutableStateOf("") }
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(16.dp)) {
+    fun now() = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
+    fun reply(text: String) = when {
+        listOf("adopt", "application", "ampon").any { text.contains(it, true) } -> "Thanks for your interest in adopting! You can track your application under My Account. Our team reviews applications within 3-5 days."
+        listOf("lost", "found", "missing", "nawala").any { text.contains(it, true) } -> "Sorry to hear that. Please post a report on the Lost tab so the community can help. We'll share it with our volunteers too."
+        listOf("donat", "give", "supplies", "money").any { text.contains(it, true) } -> "Thank you for supporting our mission! You can donate money or supplies on the Give tab."
+        listOf("clinic", "vet", "sick", "appointment", "book").any { text.contains(it, true) } -> "For vet care, check the Clinics tab to call or book a visit. For emergencies, PetTreasure Veterinary Clinic is open 24/7."
+        else -> "Thanks for reaching out! A member of the PawCKet FurTal team will get back to you soon."
+    }
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 96.dp)) {
         item { Banner("INBOX", "Messages", "Chat with our team about adoptions, donations, and inquiries.", Mint) }
+        if (vm.messages.isEmpty()) item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("Adoption", "Lost pet", "Donations").forEach { q ->
+                    AssistChip({ msg = "I have a question about ${q.lowercase()}." }, { Text(q, fontSize = 12.sp) })
+                }
+            }
+        }
         if (vm.messages.isEmpty()) {
             item { Text("No messages yet. Start a conversation with us!", Modifier.padding(24.dp), color = Color.Gray) }
         } else {
@@ -542,13 +566,15 @@ fun Context.addNotification(vm: Vm, title: String, message: String) {
                 shape = RoundedCornerShape(24.dp), colors = OutlinedTextFieldDefaults.colors(focusedContainerColor = Color.White, unfocusedContainerColor = Color.White))
             Spacer(Modifier.width(8.dp))
             IconButton({ 
-                if (msg.isNotBlank()) {
-                    val timestamp = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
-                    vm.messages.add(Message(vm.messages.size + 1, vm.user?.name ?: "You", msg, timestamp, true))
+                if (msg.isBlank()) c.toast("Type a message first")
+                else {
+                    vm.messages.add(Message(vm.messages.size + 1, vm.user?.name ?: "You", msg, now(), true))
+                    vm.messages.add(Message(vm.messages.size + 1, "PawCKet Support", reply(msg), now(), false))
                     msg = ""
                     c.toast("Message sent")
+                    c.addNotification(vm, "New message", "PawCKet Support replied to your message.")
                 }
-            }, Modifier.size(48.dp).clip(CircleShape).background(Green)) { Icon(Icons.Filled.Send, null, tint = Color.White, Modifier.size(20.dp)) }
+            }, Modifier.size(48.dp).clip(CircleShape).background(Green)) { Icon(Icons.AutoMirrored.Filled.Send, null, Modifier.size(20.dp), tint = Color.White) }
         }
     }
 }
@@ -559,6 +585,7 @@ fun Context.addNotification(vm: Vm, title: String, message: String) {
     val u = vm.user ?: Profile()
     var edit by remember { mutableStateOf(false) }
     var track by remember { mutableStateOf<String?>(null) }
+    var confirmLogout by remember { mutableStateOf(false) }
     var n by remember(u) { mutableStateOf(u.name) }; var ph by remember(u) { mutableStateOf(u.phone) }; var fb by remember(u) { mutableStateOf(u.facebook) }
     var em by remember(u) { mutableStateOf(u.email) }; var ad by remember(u) { mutableStateOf(u.address) }
     Column(Modifier.fillMaxSize().imePadding().navigationBarsPadding().verticalScroll(rememberScrollState())) {
@@ -590,9 +617,15 @@ fun Context.addNotification(vm: Vm, title: String, message: String) {
             if (vm.favorites.isNotEmpty()) Text("Favorites: ${vm.pets.filter { it.id in vm.favorites }.joinToString { it.name }}", Modifier.padding(top = 8.dp), fontSize = 13.sp)
             Spacer(Modifier.height(16.dp))
             BigBtn("Contact Support", Teal, icon = Icons.Filled.Email) { navToMessages() }
-        TextButton({ vm.user = null; vm.guest = false; logout() }, Modifier.align(Alignment.CenterHorizontally)) { Text("Log out", color = Color(0xFFB3261E)) }
+            TextButton({ confirmLogout = true }, Modifier.align(Alignment.CenterHorizontally)) { Text("Log out", color = Color(0xFFB3261E)) }
         }
     }
+    if (confirmLogout) AlertDialog(onDismissRequest = { confirmLogout = false },
+        icon = { Icon(Icons.AutoMirrored.Filled.Logout, null, tint = Color(0xFFB3261E)) },
+        title = { Text("Log out?") },
+        text = { Text(if (vm.guest) "You're browsing as a guest. Sign up next time to save your profile." else "You can log back in anytime with your email.") },
+        confirmButton = { TextButton({ confirmLogout = false; vm.user = null; vm.guest = false; c.toast("Logged out. See you soon!"); logout() }) { Text("Log out", color = Color(0xFFB3261E)) } },
+        dismissButton = { TextButton({ confirmLogout = false }) { Text("Cancel", color = Ink) } })
 }
 
 // ---------- ADOPTION STATUS ----------
