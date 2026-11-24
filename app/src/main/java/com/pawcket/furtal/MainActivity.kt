@@ -1,10 +1,14 @@
 package com.pawcket.furtal
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
+import androidx.core.app.NotificationCompat
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -43,6 +47,7 @@ val Mint = Color(0xFFE6F4EA); val Lav = Color(0xFFF3E8FF); val Peach = Color(0xF
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(s: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(s)
         setContent {
             MaterialTheme(colorScheme = lightColorScheme(primary = Green, background = Cream, surface = Cream)) {
@@ -55,19 +60,48 @@ class MainActivity : ComponentActivity() {
 fun Context.toast(m: String) = Toast.makeText(this, m, Toast.LENGTH_SHORT).show()
 fun Context.go(i: Intent) = try { startActivity(i) } catch (e: Exception) { toast("No app available") }
 
+fun Context.sendNotification(title: String, message: String, channelId: String = "pawcket_channel") {
+    val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    val notificationId = System.currentTimeMillis().toInt()
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val channel = NotificationChannel(channelId, "PawCKet Notifications", NotificationManager.IMPORTANCE_DEFAULT).apply {
+            description = "Notifications for PawCKet FurTal app"
+        }
+        notificationManager.createNotificationChannel(channel)
+    }
+
+    val notification = NotificationCompat.Builder(this, channelId)
+        .setSmallIcon(android.R.drawable.ic_dialog_info)
+        .setContentTitle(title)
+        .setContentText(message)
+        .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+        .setAutoCancel(true)
+        .build()
+
+    notificationManager.notify(notificationId, notification)
+}
+
+fun Context.addNotification(vm: Vm, title: String, message: String) {
+    val timestamp = java.text.SimpleDateFormat("MMM dd, HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
+    vm.notifications.add(0, "[$timestamp] $title: $message")
+    sendNotification(title, message)
+}
+
 @Composable fun App(vm: Vm) {
     var screen by remember { mutableStateOf("login") }
     var menu by remember { mutableStateOf(false) }
     var langDlg by remember { mutableStateOf(false) }
+    var notifCenter by remember { mutableStateOf(false) }
     val tabs = listOf("home" to Icons.Filled.Home, "lost" to Icons.Filled.Search, "adopt" to Icons.Filled.Favorite,
         "clinics" to Icons.Filled.LocalHospital, "give" to Icons.Filled.CardGiftcard)
     fun t(k: String) = if (!vm.filipino) mapOf("home" to "Home", "lost" to "Lost", "adopt" to "Adopt", "clinics" to "Clinics", "give" to "Give")[k]!!
         else mapOf("home" to "Tahanan", "lost" to "Nawala", "adopt" to "Ampunin", "clinics" to "Klinika", "give" to "Magbigay")[k]!!
     if (screen == "login") { Login(vm) { screen = "home" }; return }
-    if (screen == "account") { BackHandler { screen = "home" }; Account(vm, { screen = "home" }) { screen = "login" }; return }
+    if (screen == "account") { BackHandler { screen = "home" }; Account(vm, { screen = "home" }, { screen = "messages" }, { screen = "login" }); return }
     Box(Modifier.fillMaxSize()) {
         Scaffold(containerColor = Cream,
-            topBar = { TopBar({ screen = "account" }, { langDlg = true }, { menu = true }) },
+            topBar = { TopBar({ screen = "account" }, { langDlg = true }, { menu = true }, { notifCenter = true }, vm.notifications.size) },
             bottomBar = {
                 NavigationBar(containerColor = Color.White) {
                     tabs.forEach { (k, ic) ->
@@ -84,6 +118,7 @@ fun Context.go(i: Intent) = try { startActivity(i) } catch (e: Exception) { toas
                     "lost" -> Lost(vm)
                     "clinics" -> Clinics(vm)
                     "give" -> Give(vm)
+                    "messages" -> Messages(vm)
                 }
             }
         }
@@ -94,7 +129,7 @@ fun Context.go(i: Intent) = try { startActivity(i) } catch (e: Exception) { toas
                     IconButton({ menu = false }) { Icon(Icons.Filled.Close, null) }
                 }
                 Spacer(Modifier.height(12.dp))
-                listOf("home" to "Home", "lost" to "Lost", "adopt" to "Adopt", "clinics" to "Clinics", "give" to "Donations").forEach { (k, n) ->
+                listOf("home" to "Home", "lost" to "Lost", "adopt" to "Adopt", "clinics" to "Clinics", "give" to "Donations", "messages" to "Messages").forEach { (k, n) ->
                     Row(Modifier.fillMaxWidth().clickable { screen = k; menu = false }.padding(vertical = 16.dp), Arrangement.SpaceBetween) {
                         Text(n, color = if (screen == k) Green else Ink, fontWeight = if (screen == k) FontWeight.Bold else FontWeight.Normal)
                         Icon(Icons.AutoMirrored.Filled.ArrowForward, null, Modifier.size(18.dp))
@@ -117,15 +152,35 @@ fun Context.go(i: Intent) = try { startActivity(i) } catch (e: Exception) { toas
             }
         }
     })
+    if (notifCenter) AlertDialog(onDismissRequest = { notifCenter = false }, confirmButton = { Text("Close", onClick = { notifCenter = false }) }, title = { Text("Notifications") }, text = {
+        if (vm.notifications.isEmpty()) Text("No notifications yet.", color = Color.Gray)
+        else LazyColumn(Modifier.heightIn(max = 400.dp)) {
+            items(vm.notifications) { notif ->
+                Card(Modifier.padding(vertical = 4.dp).fillMaxWidth(), colors = CardDefaults.cardColors(Color.White)) {
+                    Text(notif, Modifier.padding(12.dp), fontSize = 13.sp, color = Ink)
+                }
+            }
+        }
+    })
 }
 
 @Composable fun Label(s: String) = Text(s, fontSize = 10.sp, letterSpacing = 1.5.sp, color = Color(0xFF6B7A72), fontWeight = FontWeight.Medium)
 
-@Composable fun TopBar(acc: () -> Unit, lang: () -> Unit, menu: () -> Unit) {
+@Composable fun TopBar(acc: () -> Unit, lang: () -> Unit, menu: () -> Unit, notif: () -> Unit, notifCount: Int) {
     Row(Modifier.fillMaxWidth().background(Color.White).statusBarsPadding().padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Image(painterResource(R.drawable.logo), "Logo", Modifier.size(34.dp)); Spacer(Modifier.width(8.dp))
         Text("PawCKet FurTal", fontWeight = FontWeight.SemiBold, color = Dark, modifier = Modifier.weight(1f))
+        Box(Modifier.clickable { notif() }) {
+            IconButton(onClick = notif) { 
+                Icon(Icons.Filled.Notifications, null, tint = Dark)
+                if (notifCount > 0) {
+                    Box(Modifier.offset(x = 8.dp, y = (-8).dp).clip(CircleShape).background(Color(0xFFE53935)).size(18.dp), Alignment.Center) {
+                        Text(if (notifCount > 9) "9+" else notifCount.toString(), color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
         IconButton(acc) { Icon(Icons.Filled.Person, null, tint = Dark) }
         IconButton(lang) { Icon(Icons.Filled.Language, null, tint = Dark) }
         IconButton(menu) { Icon(Icons.Filled.Menu, null, tint = Dark) }
@@ -172,13 +227,13 @@ fun Context.go(i: Intent) = try { startActivity(i) } catch (e: Exception) { toas
         }
     }
 
-// ---------- LOGIN ----------
+
 @Composable fun Login(vm: Vm, done: () -> Unit) {
     val c = androidx.compose.ui.platform.LocalContext.current
     var email by remember { mutableStateOf("") }; var pw by remember { mutableStateOf("") }; var name by remember { mutableStateOf("") }
     var show by remember { mutableStateOf(false) }; var signup by remember { mutableStateOf(false) }
     fun enter(p: Profile) { vm.user = p; vm.guest = false; done() }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(24.dp)) {
+    Column(Modifier.fillMaxSize().imePadding().navigationBarsPadding().verticalScroll(rememberScrollState()).statusBarsPadding().padding(24.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) { Image(painterResource(R.drawable.logo), "Logo", Modifier.size(40.dp)); Spacer(Modifier.width(8.dp)); Text("PawCKet Furtal", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Dark) }
         Image(painterResource(R.drawable.welcome), null, Modifier.fillMaxWidth().padding(vertical = 12.dp), contentScale = ContentScale.FillWidth)
         Text(if (signup) "Join the pack" else "A home for every pet", fontSize = 26.sp, color = Dark)
@@ -261,7 +316,7 @@ fun Context.go(i: Intent) = try { startActivity(i) } catch (e: Exception) { toas
     }
 }
 
-// ---------- ADOPT ----------
+
 @Composable fun Adopt(vm: Vm) {
     val c = androidx.compose.ui.platform.LocalContext.current
     var tab by remember { mutableIntStateOf(0) }; var target by remember { mutableStateOf<Pet?>(null) }
@@ -293,7 +348,7 @@ fun Context.go(i: Intent) = try { startActivity(i) } catch (e: Exception) { toas
             Spacer(Modifier.height(16.dp))
             BigBtn("Submit") {
                 if (n.isBlank() || !e.contains("@") || why.length < 10) c.toast("Please complete all fields")
-                else { vm.applications.add(p.name); c.toast("Application for ${p.name} submitted!"); target = null }
+                else { vm.applications.add(p.name); AdoptionTracker.status[p.name] = 0; c.toast("Application for ${p.name} submitted!"); c.addNotification(vm, "Application Submitted", "Your adoption application for ${p.name} has been received!"); target = null }
             }
         }
     }
@@ -341,7 +396,7 @@ fun Context.go(i: Intent) = try { startActivity(i) } catch (e: Exception) { toas
             Spacer(Modifier.height(16.dp))
             BigBtn("Submit report") {
                 if (br.isBlank() || pl.isBlank() || ct.isBlank()) c.toast("Breed, location and contact are required")
-                else { vm.reports.add(0, Report(vm.reports.size + 1, nm.ifBlank { "Unnamed" }, br, ds, pl, if (st == 0) "Lost" else "Found", ct, if (st == 0) "🐕" else "🐈")); c.toast("Report posted"); post = false }
+                else { vm.reports.add(0, Report(vm.reports.size + 1, nm.ifBlank { "Unnamed" }, br, ds, pl, if (st == 0) "Lost" else "Found", ct, if (st == 0) "🐕" else "🐈")); c.toast("Report posted"); c.addNotification(vm, "Report Posted", "Your ${if (st == 0) "Lost" else "Found"} pet report for $nm has been posted!"); post = false }
             }
         }
     }
@@ -402,7 +457,7 @@ fun Context.go(i: Intent) = try { startActivity(i) } catch (e: Exception) { toas
             Spacer(Modifier.height(16.dp))
             BigBtn("Confirm booking") {
                 if (n.isBlank() || pet.isBlank() || d.isBlank()) c.toast("Please complete all fields")
-                else { vm.appointments.add("${k.name} · $d ${slots[slot]}"); c.toast("Booked at ${k.name}: $d, ${slots[slot]}"); book = null }
+                else { vm.appointments.add("${k.name} · $d ${slots[slot]}"); c.toast("Booked at ${k.name}: $d, ${slots[slot]}"); c.addNotification(vm, "Booking Confirmed", "Your appointment at ${k.name} is scheduled for $d at ${slots[slot]}"); book = null }
             }
         }
     }
@@ -441,7 +496,7 @@ fun Context.go(i: Intent) = try { startActivity(i) } catch (e: Exception) { toas
             BigBtn("Donate securely") {
                 val v = amt.toIntOrNull() ?: 0
                 if (n.isBlank() || !e.contains("@") || v <= 0) c.toast("Enter your details and a valid amount")
-                else { vm.totalDonated += v; vm.donations.add("₱$v"); c.toast("Thank you, $n! ₱$v donation recorded."); mode = "" }
+                else { vm.totalDonated += v; vm.donations.add("₱$v"); c.toast("Thank you, $n! ₱$v donation recorded."); c.addNotification(vm, "Thank You!", "Your donation of ₱$v has been received. Every bit helps!"); mode = "" }
             }
         }
     }
@@ -453,20 +508,60 @@ fun Context.go(i: Intent) = try { startActivity(i) } catch (e: Exception) { toas
             Spacer(Modifier.height(16.dp))
             BigBtn("Submit") {
                 if (n.isBlank() || !e.contains("@") || items.isBlank()) c.toast("Please complete all fields")
-                else { vm.donations.add(items); c.toast("Thank you! We'll contact you at $e"); mode = "" }
+                else { vm.donations.add(items); c.toast("Thank you! We'll contact you at $e"); c.addNotification(vm, "Donation Received", "Thank you for your supplies donation! We'll contact you at $e to arrange pickup."); mode = "" }
             }
         }
     }
 }
 
+// ---------- MESSAGES ----------
+@Composable fun Messages(vm: Vm) {
+    val c = androidx.compose.ui.platform.LocalContext.current
+    var msg by remember { mutableStateOf("") }
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(16.dp)) {
+        item { Banner("INBOX", "Messages", "Chat with our team about adoptions, donations, and inquiries.", Mint) }
+        if (vm.messages.isEmpty()) {
+            item { Text("No messages yet. Start a conversation with us!", Modifier.padding(24.dp), color = Color.Gray) }
+        } else {
+            items(vm.messages) { m ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = if (m.isFromUser) Arrangement.End else Arrangement.Start) {
+                    Box(Modifier.clip(RoundedCornerShape(16.dp)).background(if (m.isFromUser) Green else Color.White).padding(12.dp).widthIn(max = 280.dp)) {
+                        Column {
+                            Text(m.sender, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = if (m.isFromUser) Color.White else Green)
+                            Text(m.content, fontSize = 13.sp, color = if (m.isFromUser) Color.White else Ink)
+                            Text(m.timestamp, fontSize = 10.sp, color = if (m.isFromUser) Color(0xFFE3EEE7) else Color.Gray, modifier = Modifier.padding(top = 4.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Column(Modifier.fillMaxSize().imePadding(), verticalArrangement = Arrangement.Bottom) {
+        Row(Modifier.padding(16.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(msg, { msg = it }, Modifier.weight(1f), placeholder = { Text("Type a message...") }, singleLine = true,
+                shape = RoundedCornerShape(24.dp), colors = OutlinedTextFieldDefaults.colors(focusedContainerColor = Color.White, unfocusedContainerColor = Color.White))
+            Spacer(Modifier.width(8.dp))
+            IconButton({ 
+                if (msg.isNotBlank()) {
+                    val timestamp = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
+                    vm.messages.add(Message(vm.messages.size + 1, vm.user?.name ?: "You", msg, timestamp, true))
+                    msg = ""
+                    c.toast("Message sent")
+                }
+            }, Modifier.size(48.dp).clip(CircleShape).background(Green)) { Icon(Icons.Filled.Send, null, tint = Color.White, Modifier.size(20.dp)) }
+        }
+    }
+}
+
 // ---------- ACCOUNT ----------
-@Composable fun Account(vm: Vm, back: () -> Unit, logout: () -> Unit) {
+@Composable fun Account(vm: Vm, back: () -> Unit, navToMessages: () -> Unit, logout: () -> Unit) {
     val c = androidx.compose.ui.platform.LocalContext.current
     val u = vm.user ?: Profile()
     var edit by remember { mutableStateOf(false) }
+    var track by remember { mutableStateOf<String?>(null) }
     var n by remember(u) { mutableStateOf(u.name) }; var ph by remember(u) { mutableStateOf(u.phone) }; var fb by remember(u) { mutableStateOf(u.facebook) }
     var em by remember(u) { mutableStateOf(u.email) }; var ad by remember(u) { mutableStateOf(u.address) }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+    Column(Modifier.fillMaxSize().imePadding().navigationBarsPadding().verticalScroll(rememberScrollState())) {
         Column(Modifier.fillMaxWidth().background(Green).statusBarsPadding().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Row(Modifier.fillMaxWidth()) { IconButton(back) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White) } }
             Label("MY ACCOUNT"); Text(u.name, color = Color.White, fontSize = 22.sp)
@@ -479,10 +574,94 @@ fun Context.go(i: Intent) = try { startActivity(i) } catch (e: Exception) { toas
                 Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) { Text(l, fontSize = 11.sp, color = Color.Gray); Text(v.ifBlank { "Not set" }, color = if (v.isBlank()) Color.LightGray else Ink) }; HorizontalDivider() }
             Spacer(Modifier.height(16.dp))
             BigBtn(if (edit) "Save profile" else "Edit profile") { if (edit) { vm.user = Profile(n, em, ph, fb, ad); c.toast("Profile saved") }; edit = !edit }
-            if (vm.applications.isNotEmpty()) Text("My adoption applications: ${vm.applications.joinToString()}", Modifier.padding(top = 14.dp), fontSize = 13.sp)
+            if (vm.applications.isNotEmpty()) {
+                Text("My adoption applications", Modifier.padding(top = 14.dp), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                vm.applications.forEach { a ->
+                    Row(Modifier.fillMaxWidth().padding(top = 8.dp).clip(RoundedCornerShape(12.dp)).background(Color.White).clickable { track = a }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(a, Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+                        StatusBadge(AdoptionTracker.status[a] ?: 0)
+                        Spacer(Modifier.width(8.dp))
+                        Icon(Icons.AutoMirrored.Filled.ArrowForward, null, Modifier.size(18.dp))
+                    }
+                }
+            }
             if (vm.appointments.isNotEmpty()) Text("My appointments:\n" + vm.appointments.joinToString("\n"), Modifier.padding(top = 8.dp), fontSize = 13.sp)
             if (vm.favorites.isNotEmpty()) Text("Favorites: ${vm.pets.filter { it.id in vm.favorites }.joinToString { it.name }}", Modifier.padding(top = 8.dp), fontSize = 13.sp)
-            TextButton({ vm.user = null; vm.guest = false; logout() }, Modifier.align(Alignment.CenterHorizontally)) { Text("Log out", color = Color(0xFFB3261E)) }
+            track?.let { ApplicationSheet(it) { track = null } }
+            Spacer(Modifier.height(16.dp))
+            BigBtn("Contact Support", Teal, icon = Icons.Filled.Message) { navToMessages() }
+        TextButton({ vm.user = null; vm.guest = false; logout() }, Modifier.align(Alignment.CenterHorizontally)) { Text("Log out", color = Color(0xFFB3261E)) }
         }
+    }
+}
+
+// ---------- ADOPTION STATUS ----------
+object AdoptionTracker {
+    val status = mutableStateMapOf<String, Int>()
+    val done = mutableStateMapOf<String, Set<Int>>()
+}
+
+val adoptionSteps = listOf(
+    "Meet and greet with the pet",
+    "Sign the agreement and bring a valid ID",
+    "Pay the adoption fee",
+    "Pick up with health records"
+)
+
+@Composable fun StatusBadge(s: Int) {
+    val (txt, bg, fg) = when (s) {
+        0 -> Triple("Pending", Color(0xFFFFF3CD), Color(0xFF7A5B00))
+        1 -> Triple("Under review", Color(0xFFDCEBFF), Color(0xFF0B4A8F))
+        2 -> Triple("Approved", Mint, Dark)
+        else -> Triple("Rejected", Color(0xFFFDE2E0), Color(0xFFB3261E))
+    }
+    Text(txt, Modifier.clip(RoundedCornerShape(50)).background(bg).padding(horizontal = 10.dp, vertical = 4.dp), color = fg, fontSize = 12.sp)
+}
+
+@Composable fun ApplicationSheet(name: String, close: () -> Unit) {
+    val c = androidx.compose.ui.platform.LocalContext.current
+    val s = AdoptionTracker.status[name] ?: 0
+    val done = AdoptionTracker.done[name] ?: emptySet()
+    val current = adoptionSteps.indices.firstOrNull { it !in done } ?: adoptionSteps.size
+    Sheet("$name's application", close) {
+        Spacer(Modifier.height(10.dp))
+        StatusBadge(s)
+        Text(
+            when (s) {
+                0 -> "We got your application. It has not been reviewed yet."
+                1 -> "Our team is reviewing your application."
+                2 -> "Congrats! Finish the steps below to take $name home."
+                else -> "Sorry, your application was not approved this time. You can apply to another pet."
+            },
+            Modifier.padding(vertical = 12.dp), fontSize = 13.sp, color = Color(0xFF55645B)
+        )
+        if (s == 2) {
+            Label("NEXT STEPS")
+            Spacer(Modifier.height(6.dp))
+            adoptionSteps.forEachIndexed { i, t ->
+                Row(
+                    Modifier.fillMaxWidth().padding(vertical = 3.dp).clip(RoundedCornerShape(10.dp))
+                        .background(if (i == current) Mint else Color.Transparent)
+                        .clickable {
+                            AdoptionTracker.done[name] = if (i in done) done - i else done + i
+                            if (i !in done && done.size + 1 == adoptionSteps.size) c.toast("Adoption completed. Welcome home, $name!")
+                        }.padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(if (i in done) Icons.Filled.CheckCircle else Icons.Filled.RadioButtonUnchecked, null, tint = if (i in done) Green else Color.Gray)
+                    Spacer(Modifier.width(10.dp))
+                    Text(t, color = if (i in done) Color.Gray else Ink, fontWeight = if (i == current) FontWeight.SemiBold else FontWeight.Normal)
+                }
+            }
+            if (current == adoptionSteps.size) {
+                Spacer(Modifier.height(8.dp))
+                Text("Adoption completed", color = Green, fontWeight = FontWeight.Bold)
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+        OutlinedButton(
+            { AdoptionTracker.status[name] = (s + 1) % 4; if ((s + 1) % 4 == 0) AdoptionTracker.done.remove(name) },
+            Modifier.fillMaxWidth().height(46.dp), shape = RoundedCornerShape(12.dp)
+        ) { Text("Demo: change status", color = Ink) }
     }
 }

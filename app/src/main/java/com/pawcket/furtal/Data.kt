@@ -12,6 +12,7 @@ data class Clinic(val name: String, val tag: String, val address: String, val ph
                   val hours: String, val services: List<String>)
 data class Profile(val name: String = "PawCKet Friend", val email: String = "", val phone: String = "",
                    val facebook: String = "", val address: String = "")
+data class Message(val id: Int, val sender: String, val content: String, val timestamp: String, val isFromUser: Boolean = true)
 
 class Vm : ViewModel() {
     var user by mutableStateOf<Profile?>(null)
@@ -22,6 +23,8 @@ class Vm : ViewModel() {
     val donations = mutableStateListOf<String>()
     val appointments = mutableStateListOf<String>()
     var totalDonated by mutableStateOf(0)
+    val messages = mutableStateListOf<Message>()
+    val notifications = mutableStateListOf<String>()
 
     val pets = listOf(
         Pet(1, "Cookie", "Aspin (Asong Pinoy)", "2 years", "Male", "Medium", "Dog", true, "🐕", R.drawable.cookie),
