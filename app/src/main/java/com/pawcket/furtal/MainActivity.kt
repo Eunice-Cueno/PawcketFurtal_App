@@ -348,11 +348,7 @@ fun Context.addNotification(vm: Vm, title: String, message: String) {
             Spacer(Modifier.height(16.dp))
             BigBtn("Submit") {
                 if (n.isBlank() || !e.contains("@") || why.length < 10) c.toast("Please complete all fields")
-<<<<<<< HEAD
                 else { vm.applications.add(p.name); AdoptionTracker.status[p.name] = 0; c.toast("Application for ${p.name} submitted!"); c.addNotification(vm, "Application Submitted", "Your adoption application for ${p.name} has been received!"); target = null }
-=======
-                else { vm.applications.add(p.name); AdoptionTracker.status[p.name] = 0; c.toast("Application for ${p.name} submitted!"); target = null }
->>>>>>> 49632babcdcde176f1a8d1add715f0f5ab47a798
             }
         }
     }
@@ -589,15 +585,11 @@ fun Context.addNotification(vm: Vm, title: String, message: String) {
                     }
                 }
             }
-<<<<<<< HEAD
-=======
             track?.let { ApplicationSheet(it) { track = null } }
->>>>>>> 49632babcdcde176f1a8d1add715f0f5ab47a798
             if (vm.appointments.isNotEmpty()) Text("My appointments:\n" + vm.appointments.joinToString("\n"), Modifier.padding(top = 8.dp), fontSize = 13.sp)
             if (vm.favorites.isNotEmpty()) Text("Favorites: ${vm.pets.filter { it.id in vm.favorites }.joinToString { it.name }}", Modifier.padding(top = 8.dp), fontSize = 13.sp)
-            track?.let { ApplicationSheet(it) { track = null } }
             Spacer(Modifier.height(16.dp))
-            BigBtn("Contact Support", Teal, icon = Icons.Filled.Message) { navToMessages() }
+            BigBtn("Contact Support", Teal, icon = Icons.Filled.Email) { navToMessages() }
         TextButton({ vm.user = null; vm.guest = false; logout() }, Modifier.align(Alignment.CenterHorizontally)) { Text("Log out", color = Color(0xFFB3261E)) }
         }
     }
@@ -672,8 +664,4 @@ val adoptionSteps = listOf(
             Modifier.fillMaxWidth().height(46.dp), shape = RoundedCornerShape(12.dp)
         ) { Text("Demo: change status", color = Ink) }
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> 49632babcdcde176f1a8d1add715f0f5ab47a798
