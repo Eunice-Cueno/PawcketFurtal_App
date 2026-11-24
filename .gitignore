@@ -1,7 +1,5 @@
 # Gradle
 .gradle/
-build/
-app/build/
 /captures/
 .externalNativeBuild/
 .cxx/
@@ -17,8 +15,7 @@ local.properties
 .DS_Store
 Thumbs.db
 
-# Build outputs
-*.apk
+# Build outputs (except debug APK for distribution)
 *.aab
 *.ap_
 *.dex
